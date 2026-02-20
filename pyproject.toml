@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gliner-eval"
+version = "0.1.0"
+description = "Benchmarking GLiNER-relex against GPT-5 and Qwen3 on relation extraction"
+requires-python = ">=3.10"
+dependencies = [
+    "gliner>=0.2.25",
+    "openai>=2.0.0",
+    "huggingface-hub",
+    "pyyaml",
+    "python-dotenv",
+    "pydantic",
+    "pandas",
+    "tqdm",
+    "numpy",
+    "tabulate",
+    "requests",
+    "matplotlib",
+]
+
+[tool.setuptools.packages.find]
+include = ["src*"]

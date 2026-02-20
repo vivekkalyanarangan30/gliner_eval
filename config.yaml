@@ -1,0 +1,36 @@
+general:
+  sample_size: 5
+  random_seed: 42
+  output_dir: outputs
+  matching_mode: strict
+
+datasets:
+  docred:
+    enabled: true
+    split: validation
+  crossre:
+    enabled: true
+    domains: [ai, news, science]
+    split: test
+  fewrel:
+    enabled: true
+    split: val_wiki
+
+models:
+  gliner:
+    enabled: true
+    model_id: knowledgator/gliner-relex-large-v0.5
+    entity_threshold: 0.3
+    relation_threshold: 0.5
+    batch_size: 1
+  gpt5:
+    enabled: true
+    model_name: gpt-5
+    temperature: 0.0
+    max_tokens: 16384
+  qwen3:
+    enabled: true
+    model_name: qwen3:0.6b
+    ollama_base_url: http://localhost:11434/v1
+    temperature: 0.0
+    max_tokens: 2048
