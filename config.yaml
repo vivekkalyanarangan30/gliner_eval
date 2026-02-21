@@ -1,5 +1,5 @@
 general:
-  sample_size: 5
+  sample_size: 25
   random_seed: 42
   output_dir: outputs
   matching_mode: strict

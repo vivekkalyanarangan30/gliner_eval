@@ -15,35 +15,38 @@ from .base import BaseRelationModel, PredictedRelation
 
 logger = logging.getLogger(__name__)
 
-RESPONSE_SCHEMA = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "relation_extraction",
-        "strict": True,
-        "schema": {
-            "type": "object",
-            "properties": {
-                "relations": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "head_text": {"type": "string"},
-                            "head_type": {"type": "string"},
-                            "tail_text": {"type": "string"},
-                            "tail_type": {"type": "string"},
-                            "relation": {"type": "string"},
+
+def _build_response_schema(entity_types: list[str], relation_types: list[str]) -> dict:
+    """Build a JSON schema with enum constraints for entity types and relation types."""
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "relation_extraction",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "relations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "head_text": {"type": "string"},
+                                "head_type": {"type": "string", "enum": entity_types},
+                                "tail_text": {"type": "string"},
+                                "tail_type": {"type": "string", "enum": entity_types},
+                                "relation": {"type": "string", "enum": relation_types},
+                            },
+                            "required": ["head_text", "head_type", "tail_text", "tail_type", "relation"],
+                            "additionalProperties": False,
                         },
-                        "required": ["head_text", "head_type", "tail_text", "tail_type", "relation"],
-                        "additionalProperties": False,
-                    },
-                }
+                    }
+                },
+                "required": ["relations"],
+                "additionalProperties": False,
             },
-            "required": ["relations"],
-            "additionalProperties": False,
         },
-    },
-}
+    }
 
 
 class OpenAIModel(BaseRelationModel):
@@ -53,7 +56,7 @@ class OpenAIModel(BaseRelationModel):
         self,
         model_name: str = "gpt-5",
         temperature: float = 0.0,
-        max_tokens: int = 2048,
+        max_tokens: int = 16384,
     ):
         self.model_name = model_name
         self.temperature = temperature
@@ -81,6 +84,7 @@ class OpenAIModel(BaseRelationModel):
             raise RuntimeError("Client not initialized. Call load() first.")
 
         prompt = self.format_prompt(sample.text, entity_types, relation_types)
+        schema = _build_response_schema(entity_types, relation_types)
 
         for attempt in range(3):
             try:
@@ -88,7 +92,7 @@ class OpenAIModel(BaseRelationModel):
                     "model": self.model_name,
                     "messages": [{"role": "user", "content": prompt}],
                     "max_completion_tokens": self.max_tokens,
-                    "response_format": RESPONSE_SCHEMA,
+                    "response_format": schema,
                 }
                 # GPT-5 only supports default temperature (1)
                 if self.temperature > 0:

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from huggingface_hub import hf_hub_download
 
-from .base import DatasetInfo, Entity, GoldRelation, RelationSample
+from .base import DatasetInfo, Entity, GoldRelation, RelationSample, reconstruct_text
 
 logger = logging.getLogger(__name__)
 
@@ -27,27 +27,25 @@ def _load_gzip_json(path: Path) -> dict | list:
         return json.load(f)
 
 
-def _reconstruct_text(sents: list[list[str]]) -> tuple[str, list[list[tuple[int, int]]]]:
-    """Join tokenized sentences into full text, tracking char offsets per token.
+def _reconstruct_doc_text(sents: list[list[str]]) -> tuple[str, list[list[tuple[int, int]]]]:
+    """Join tokenized sentences into full text with per-sentence offset tracking.
 
+    Uses the shared reconstruct_text for consistent punctuation handling.
     Returns (full_text, offsets) where offsets[sent_idx][tok_idx] = (start, end).
     """
-    parts = []
-    offsets = []
-    pos = 0
+    # Flatten all tokens, reconstruct, then map back to sentences
+    flat_tokens = []
+    sent_boundaries = []
     for sent_tokens in sents:
-        sent_offsets = []
-        for i, tok in enumerate(sent_tokens):
-            start = pos
-            end = pos + len(tok)
-            sent_offsets.append((start, end))
-            parts.append(tok)
-            pos = end
-            # Add space after each token (except last token of last sentence)
-            parts.append(" ")
-            pos += 1
-        offsets.append(sent_offsets)
-    full_text = "".join(parts).rstrip()
+        sent_boundaries.append((len(flat_tokens), len(flat_tokens) + len(sent_tokens)))
+        flat_tokens.extend(sent_tokens)
+
+    full_text, flat_offsets = reconstruct_text(flat_tokens)
+
+    offsets = []
+    for start_idx, end_idx in sent_boundaries:
+        offsets.append(flat_offsets[start_idx:end_idx])
+
     return full_text, offsets
 
 
@@ -81,30 +79,47 @@ def load_docred(
     all_relation_types = set()
 
     for idx, doc in enumerate(data):
-        text, offsets = _reconstruct_text(doc["sents"])
+        text, offsets = _reconstruct_doc_text(doc["sents"])
         vertex_set = doc["vertexSet"]
 
         # Build entity list from vertex set
         entities = []
         for vert in vertex_set:
-            mention = vert[0]  # first mention
-            name = mention["name"]
-            etype = mention["type"].lower()
+            etype = vert[0]["type"].lower()
             all_entity_types.add(etype)
 
-            # Compute char offsets from token positions
-            sent_id = mention["sent_id"]
-            tok_start = mention["pos"][0]
-            tok_end = mention["pos"][1]  # exclusive
-            if sent_id < len(offsets) and tok_start < len(offsets[sent_id]):
-                start_char = offsets[sent_id][tok_start][0]
-                end_idx = min(tok_end - 1, len(offsets[sent_id]) - 1)
-                end_char = offsets[sent_id][end_idx][1]
-            else:
-                start_char = -1
-                end_char = -1
+            # Collect ALL unique mention texts from the vertex set
+            # This is critical for correct evaluation: DocRED entities have
+            # multiple coreference mentions (e.g., "University of Uyo" / "UNIUYO")
+            mention_texts = []
+            primary_start = -1
+            primary_end = -1
+            for mention in vert:
+                sent_id = mention["sent_id"]
+                tok_start = mention["pos"][0]
+                tok_end = mention["pos"][1]  # exclusive
+                if sent_id < len(offsets) and tok_start < len(offsets[sent_id]):
+                    sc = offsets[sent_id][tok_start][0]
+                    ei = min(tok_end - 1, len(offsets[sent_id]) - 1)
+                    ec = offsets[sent_id][ei][1]
+                    m_text = text[sc:ec]
+                else:
+                    sc, ec = -1, -1
+                    m_text = mention["name"]
+                mention_texts.append(m_text)
+                if primary_start == -1:
+                    primary_start, primary_end = sc, ec
 
-            entities.append(Entity(text=name, type=etype, start_char=start_char, end_char=end_char))
+            # Use the LONGEST mention as primary (most complete form)
+            unique_texts = list(dict.fromkeys(mention_texts))  # dedupe, preserve order
+            primary = max(unique_texts, key=len)
+            aliases = [t for t in unique_texts if t != primary]
+
+            entities.append(Entity(
+                text=primary, type=etype,
+                start_char=primary_start, end_char=primary_end,
+                aliases=aliases,
+            ))
 
         # Build relations
         relations = []

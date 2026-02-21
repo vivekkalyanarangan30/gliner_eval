@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 def _extract_json_fallback(text: str) -> dict | None:
     """Attempt to extract JSON from malformed LLM output."""
-    # Try to find JSON block
     match = re.search(r"\{[\s\S]*\}", text)
     if match:
         try:
@@ -29,7 +28,7 @@ def _extract_json_fallback(text: str) -> dict | None:
 
 
 class OllamaModel(BaseRelationModel):
-    name = "qwen3"
+    name = "qwen3-0.6B"
 
     def __init__(
         self,
@@ -52,7 +51,6 @@ class OllamaModel(BaseRelationModel):
             resp.raise_for_status()
             models = [m["name"] for m in resp.json().get("models", [])]
             if self.model_name not in models:
-                # Check without tag
                 base_names = [m.split(":")[0] for m in models]
                 model_base = self.model_name.split(":")[0]
                 if model_base not in base_names:
@@ -117,17 +115,42 @@ class OllamaModel(BaseRelationModel):
             logger.error(f"Failed to parse Ollama response for {sample.id}")
             return []
 
+        # Normalize relation/entity types and filter to valid labels only
+        rel_set = {r.lower() for r in relation_types}
+        etype_set = {e.lower() for e in entity_types}
+
         predictions = []
         for rel in data.get("relations", []):
             if not isinstance(rel, dict):
                 continue
+
+            head_text = rel.get("head_text", "")
+            tail_text = rel.get("tail_text", "")
+            relation = rel.get("relation", "")
+            head_type = rel.get("head_type", "")
+            tail_type = rel.get("tail_type", "")
+
+            # Skip if relation label isn't in the allowed vocabulary
+            if relation.lower() not in rel_set:
+                continue
+
+            # Clamp entity types to valid ones
+            if head_type.lower() not in etype_set:
+                head_type = entity_types[0]
+            if tail_type.lower() not in etype_set:
+                tail_type = entity_types[0]
+
+            # Skip if entity text is empty or is just the relation label
+            if not head_text.strip() or not tail_text.strip():
+                continue
+
             predictions.append(
                 PredictedRelation(
-                    head_text=rel.get("head_text", ""),
-                    head_type=rel.get("head_type", ""),
-                    tail_text=rel.get("tail_text", ""),
-                    tail_type=rel.get("tail_type", ""),
-                    relation=rel.get("relation", ""),
+                    head_text=head_text,
+                    head_type=head_type,
+                    tail_text=tail_text,
+                    tail_type=tail_type,
+                    relation=relation,
                 )
             )
 

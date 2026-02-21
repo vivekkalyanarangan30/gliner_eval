@@ -1,4 +1,4 @@
-"""Text normalization and strict/relaxed triple matching."""
+"""Text normalization and strict triple matching."""
 
 from __future__ import annotations
 
@@ -10,8 +10,30 @@ from src.models.base import PredictedRelation
 
 
 def normalize(text: str) -> str:
-    """Lowercase, strip, and collapse whitespace."""
-    return re.sub(r"\s+", " ", text.lower().strip())
+    """Lowercase, strip, collapse whitespace, normalize punctuation, strip articles."""
+    t = text.lower().strip()
+    # Remove spaces before punctuation: "Dec 10 , 1260" → "Dec 10, 1260"
+    t = re.sub(r"\s+([,.:;!?)])", r"\1", t)
+    # Remove spaces after opening brackets
+    t = re.sub(r"([([\[])\s+", r"\1", t)
+    # Collapse remaining whitespace
+    t = re.sub(r"\s+", " ", t)
+    # Strip leading articles (standard NLP normalization)
+    t = re.sub(r"^(the|a|an)\s+", "", t)
+    return t
+
+
+def _entity_matches(gold_entity_text: str, gold_aliases: list[str], pred_text: str) -> bool:
+    """Check if predicted entity text matches gold entity or any of its aliases."""
+    norm_pred = normalize(pred_text)
+    # Check primary text
+    if normalize(gold_entity_text) == norm_pred:
+        return True
+    # Check all aliases (coreference mentions for document-level RE)
+    for alias in gold_aliases:
+        if normalize(alias) == norm_pred:
+            return True
+    return False
 
 
 @dataclass
@@ -25,26 +47,16 @@ class MatchResult:
 
 
 def _strict_match(gold: GoldRelation, pred: PredictedRelation) -> bool:
-    """Exact match on normalized (head_text, tail_text, relation)."""
+    """Exact match on normalized (head_text, tail_text, relation).
+
+    For head/tail, checks against primary text AND all aliases (coreference
+    handling for document-level RE, standard in DocRED evaluation).
+    """
     return (
-        normalize(gold.head.text) == normalize(pred.head_text)
-        and normalize(gold.tail.text) == normalize(pred.tail_text)
+        _entity_matches(gold.head.text, gold.head.aliases, pred.head_text)
+        and _entity_matches(gold.tail.text, gold.tail.aliases, pred.tail_text)
         and normalize(gold.relation) == normalize(pred.relation)
     )
-
-
-def _relaxed_match(gold: GoldRelation, pred: PredictedRelation) -> bool:
-    """Substring containment for entities + exact relation match."""
-    g_head = normalize(gold.head.text)
-    g_tail = normalize(gold.tail.text)
-    p_head = normalize(pred.head_text)
-    p_tail = normalize(pred.tail_text)
-
-    head_match = g_head in p_head or p_head in g_head
-    tail_match = g_tail in p_tail or p_tail in g_tail
-    rel_match = normalize(gold.relation) == normalize(pred.relation)
-
-    return head_match and tail_match and rel_match
 
 
 def match_predictions(
@@ -55,17 +67,17 @@ def match_predictions(
     """Match predictions against gold labels using greedy matching.
 
     Each gold triple is matched at most once to prevent double-counting.
+    Uses strict exact-match on normalized (head_text, tail_text, relation).
+    Entity matching considers all aliases (coreference mentions).
 
     Args:
         gold_relations: Gold standard relations.
         predicted_relations: Model predictions.
-        mode: "strict" for exact match, "relaxed" for substring containment.
+        mode: Only "strict" is supported (exact match after normalization).
 
     Returns:
         MatchResult with TP/FP/FN counts and matched triples.
     """
-    match_fn = _strict_match if mode == "strict" else _relaxed_match
-
     matched_gold = set()
     matched_pred = set()
     tp_triples = []
@@ -75,7 +87,7 @@ def match_predictions(
         for gi, gold in enumerate(gold_relations):
             if gi in matched_gold:
                 continue
-            if match_fn(gold, pred):
+            if _strict_match(gold, pred):
                 matched_gold.add(gi)
                 matched_pred.add(pi)
                 tp_triples.append((gold, pred))

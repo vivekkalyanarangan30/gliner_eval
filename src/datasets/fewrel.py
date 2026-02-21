@@ -9,7 +9,7 @@ from pathlib import Path
 
 import requests
 
-from .base import DatasetInfo, Entity, GoldRelation, RelationSample
+from .base import DatasetInfo, Entity, GoldRelation, RelationSample, reconstruct_text
 
 logger = logging.getLogger(__name__)
 
@@ -69,34 +69,35 @@ def load_fewrel(
 
         for inst in instances:
             tokens = inst["tokens"]
-            text = " ".join(tokens)
+            text, tok_offsets = reconstruct_text(tokens)
 
-            # Head entity
-            h_name = inst["h"][0]
+            # Head entity — extract from reconstructed text for consistency
             h_indices = inst["h"][2][0] if inst["h"][2] else []
             h_type = "entity"  # FewRel doesn't provide fine-grained entity types
             all_entity_types.add(h_type)
 
-            # Compute head char offsets from token indices
             if h_indices:
-                h_start_char = len(" ".join(tokens[: h_indices[0]])) + (1 if h_indices[0] > 0 else 0)
-                h_end_char = h_start_char + len(" ".join(tokens[i] for i in h_indices))
+                h_start_char = tok_offsets[h_indices[0]][0]
+                h_end_char = tok_offsets[h_indices[-1]][1]
+                h_name = text[h_start_char:h_end_char]
             else:
+                h_name = inst["h"][0]
                 h_start_char = -1
                 h_end_char = -1
 
             head = Entity(text=h_name, type=h_type, start_char=h_start_char, end_char=h_end_char)
 
-            # Tail entity
-            t_name = inst["t"][0]
+            # Tail entity — same approach
             t_indices = inst["t"][2][0] if inst["t"][2] else []
             t_type = "entity"
             all_entity_types.add(t_type)
 
             if t_indices:
-                t_start_char = len(" ".join(tokens[: t_indices[0]])) + (1 if t_indices[0] > 0 else 0)
-                t_end_char = t_start_char + len(" ".join(tokens[i] for i in t_indices))
+                t_start_char = tok_offsets[t_indices[0]][0]
+                t_end_char = tok_offsets[t_indices[-1]][1]
+                t_name = text[t_start_char:t_end_char]
             else:
+                t_name = inst["t"][0]
                 t_start_char = -1
                 t_end_char = -1
 

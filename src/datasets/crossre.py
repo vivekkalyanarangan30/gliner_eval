@@ -9,12 +9,22 @@ from pathlib import Path
 
 import requests
 
-from .base import DatasetInfo, Entity, GoldRelation, RelationSample
+from .base import DatasetInfo, Entity, GoldRelation, RelationSample, reconstruct_text
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://raw.githubusercontent.com/mainlp/CrossRE/main/crossre_data"
 CACHE_DIR = Path.home() / ".cache" / "gliner_eval" / "crossre"
+
+# Map concatenated CrossRE entity types to natural language labels
+# so models (especially GLiNER) can understand them
+_ENTITY_TYPE_MAP = {
+    "academicjournal": "academic journal",
+    "astronomicalobject": "astronomical object",
+    "chemicalcompound": "chemical compound",
+    "chemicalelement": "chemical element",
+    "programlang": "programming language",
+}
 
 
 def _download_domain(domain: str, split: str) -> Path:
@@ -47,20 +57,20 @@ def _parse_jsonl(path: Path, domain: str) -> list[RelationSample]:
             obj = json.loads(line)
 
             tokens = obj["sentence"]
-            text = " ".join(tokens)
+            text, tok_offsets = reconstruct_text(tokens)
 
             # Build entity map keyed by (start, end) for dedup
             entity_map: dict[tuple[int, int], Entity] = {}
             for ner_entry in obj.get("ner", []):
                 start, end, etype = ner_entry[0], ner_entry[1], ner_entry[2]
                 # end is INCLUSIVE in CrossRE
-                entity_text = " ".join(tokens[start : end + 1])
-                # Compute char offsets
-                char_start = len(" ".join(tokens[:start])) + (1 if start > 0 else 0)
-                char_end = char_start + len(entity_text)
+                char_start = tok_offsets[start][0]
+                char_end = tok_offsets[end][1]  # end is inclusive
+                entity_text = text[char_start:char_end]
+                raw_type = etype.lower()
                 entity_map[(start, end)] = Entity(
                     text=entity_text,
-                    type=etype.lower(),
+                    type=_ENTITY_TYPE_MAP.get(raw_type, raw_type),
                     start_char=char_start,
                     end_char=char_end,
                 )
@@ -76,11 +86,13 @@ def _parse_jsonl(path: Path, domain: str) -> list[RelationSample]:
                 head = entity_map.get((s1, e1))
                 tail = entity_map.get((s2, e2))
                 if head is None:
-                    head_text = " ".join(tokens[s1 : e1 + 1])
-                    head = Entity(text=head_text, type="unknown")
+                    hc_s = tok_offsets[s1][0]
+                    hc_e = tok_offsets[e1][1]
+                    head = Entity(text=text[hc_s:hc_e], type="unknown")
                 if tail is None:
-                    tail_text = " ".join(tokens[s2 : e2 + 1])
-                    tail = Entity(text=tail_text, type="unknown")
+                    tc_s = tok_offsets[s2][0]
+                    tc_e = tok_offsets[e2][1]
+                    tail = Entity(text=text[tc_s:tc_e], type="unknown")
 
                 relations.append(GoldRelation(head=head, tail=tail, relation=rel_type))
 

@@ -84,4 +84,19 @@ class GLiNERModel(BaseRelationModel):
                 )
             )
 
-        return predictions
+        # Deduplicate: keep only the top-3 highest-scoring relations per (head, tail) pair.
+        # GLiNER can predict dozens of relation labels for the same entity pair,
+        # destroying precision (e.g., 37 labels for one pair on DocRED).
+        # Top-3 allows legitimate multi-label relations while pruning noise.
+        from collections import defaultdict
+        pair_preds: dict[tuple[str, str], list[PredictedRelation]] = defaultdict(list)
+        for pred in predictions:
+            key = (pred.head_text, pred.tail_text)
+            pair_preds[key].append(pred)
+
+        deduped = []
+        for key, preds in pair_preds.items():
+            preds.sort(key=lambda p: p.score, reverse=True)
+            deduped.extend(preds[:3])
+
+        return deduped
