@@ -23,6 +23,10 @@ models:
     entity_threshold: 0.3
     relation_threshold: 0.5
     batch_size: 1
+  gliner2:
+    enabled: true
+    model_id: fastino/gliner2-large-v1
+    relation_threshold: 0.5
   gpt5:
     enabled: true
     model_name: gpt-5

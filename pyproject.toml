@@ -9,6 +9,7 @@ description = "Benchmarking GLiNER-relex against GPT-5 and Qwen3 on relation ext
 requires-python = ">=3.10"
 dependencies = [
     "gliner>=0.2.25",
+    "gliner2>=1.2.0",
     "openai>=2.0.0",
     "huggingface-hub",
     "pyyaml",

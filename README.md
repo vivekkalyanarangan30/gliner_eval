@@ -1,6 +1,6 @@
 # GLiNER-relex Benchmark
 
-Benchmarking **GLiNER-relex** (`knowledgator/gliner-relex-large-v0.5`) against **GPT-5** and **Qwen3 (0.6B)** on relation extraction across three datasets: DocRED, CrossRE, and FewRel.
+Benchmarking **GLiNER-relex** (`knowledgator/gliner-relex-large-v0.5`) and **GLiNER2** (`fastino/gliner2-large-v1`) against **GPT-5** and **Qwen3 (0.6B)** on relation extraction across three datasets: DocRED, CrossRE, and FewRel.
 
 ## Prerequisites
 
@@ -91,7 +91,9 @@ general:
 ```yaml
 models:
   gliner:
-    enabled: true      # toggle to false to skip GLiNER
+    enabled: true      # toggle to false to skip GLiNER-relex
+  gliner2:
+    enabled: true      # toggle to false to skip GLiNER2
   gpt5:
     enabled: true      # toggle to false to skip GPT-5
   qwen3:
@@ -118,6 +120,9 @@ models:
   gliner:
     model_id: knowledgator/gliner-relex-large-v0.5
     entity_threshold: 0.3      # NER confidence threshold
+    relation_threshold: 0.5    # relation confidence threshold
+  gliner2:
+    model_id: fastino/gliner2-large-v1
     relation_threshold: 0.5    # relation confidence threshold
   gpt5:
     model_name: gpt-5
@@ -172,6 +177,7 @@ gliner_eval/
 │   ├── models/
 │   │   ├── base.py          # Base model ABC + shared prompt template
 │   │   ├── gliner_model.py  # GLiNER-relex wrapper
+│   │   ├── gliner2_model.py # GLiNER2 wrapper
 │   │   ├── openai_model.py  # GPT-5 via OpenAI API
 │   │   └── ollama_model.py  # Qwen3 via Ollama
 │   └── evaluation/
@@ -197,6 +203,7 @@ python generate_report.py
 ## Hardware Notes
 
 - **GLiNER** loads the model into CPU memory (~1.2 GB). Runs fast even on an 8 GB MacBook.
+- **GLiNER2** loads the model into CPU memory. Similar footprint to GLiNER-relex.
 - **GPT-5** calls the OpenAI API. No local compute needed, but expect ~45 min for 25 DocRED samples due to document length.
 - **Qwen3 (0.6B)** runs locally via Ollama. Light enough for any machine. Expect ~15 min total for 25 samples across all datasets.
 - Models are loaded and unloaded sequentially to keep memory usage low.

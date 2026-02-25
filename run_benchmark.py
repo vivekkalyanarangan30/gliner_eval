@@ -19,6 +19,7 @@ from src.evaluation.metrics import MetricsResult, compute_metrics
 from src.evaluation.report import generate_report
 from src.models.base import BaseRelationModel, PredictedRelation
 from src.models.gliner_model import GLiNERModel
+from src.models.gliner2_model import GLiNER2Model
 from src.models.ollama_model import OllamaModel
 from src.models.openai_model import OpenAIModel
 
@@ -72,6 +73,14 @@ def build_models(cfg) -> list[BaseRelationModel]:
                 model_id=cfg.models.gliner.model_id,
                 entity_threshold=cfg.models.gliner.entity_threshold,
                 relation_threshold=cfg.models.gliner.relation_threshold,
+            )
+        )
+
+    if cfg.models.gliner2.enabled:
+        models.append(
+            GLiNER2Model(
+                model_id=cfg.models.gliner2.model_id,
+                relation_threshold=cfg.models.gliner2.relation_threshold,
             )
         )
 

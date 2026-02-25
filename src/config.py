@@ -63,8 +63,15 @@ class Qwen3Config(BaseModel):
     max_tokens: int = 2048
 
 
+class GLiNER2Config(BaseModel):
+    enabled: bool = True
+    model_id: str = "fastino/gliner2-large-v1"
+    relation_threshold: float = 0.5
+
+
 class ModelsConfig(BaseModel):
     gliner: GLiNERConfig = GLiNERConfig()
+    gliner2: GLiNER2Config = GLiNER2Config()
     gpt5: GPT5Config = GPT5Config()
     qwen3: Qwen3Config = Qwen3Config()
 
