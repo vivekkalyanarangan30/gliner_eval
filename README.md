@@ -1,12 +1,13 @@
 # GLiNER-relex Benchmark
 
-Benchmarking **GLiNER-relex** (`knowledgator/gliner-relex-large-v0.5`) and **GLiNER2** (`fastino/gliner2-large-v1`) against **GPT-5** and **Qwen3 (0.6B)** on relation extraction across three datasets: DocRED, CrossRE, and FewRel.
+Benchmarking **GLiNER-relex** (`knowledgator/gliner-relex-large-v0.5`) and **GLiNER2** (`fastino/gliner2-large-v1`) against **GPT-5** and **Qwen3 (0.6B)** on relation extraction across four datasets: DocRED, CrossRE, FewRel, and MultiTACRED.
 
 ## Prerequisites
 
 - Python >= 3.10
 - An OpenAI API key (for GPT-5 evaluation)
 - [Ollama](https://ollama.com/) installed and running (for Qwen3 evaluation)
+- MultiTACRED data from [LDC](https://catalog.ldc.upenn.edu/LDC2024T09) (if evaluating on MultiTACRED)
 
 ## Setup
 
@@ -84,7 +85,7 @@ general:
   sample_size: 999999   # effectively uses all available samples
 ```
 
-> **Note:** Running the full dataset with GPT-5 will take a long time and incur significant API costs. DocRED validation has ~1,000 samples, CrossRE test sets have ~300-500 per domain, and FewRel val_wiki has ~11,200 samples.
+> **Note:** Running the full dataset with GPT-5 will take a long time and incur significant API costs. DocRED validation has ~1,000 samples, CrossRE test sets have ~300-500 per domain, FewRel val_wiki has ~11,200 samples, and MultiTACRED has ~106K instances per language.
 
 ### Enable/disable specific models
 
@@ -111,6 +112,10 @@ datasets:
     domains: [ai, news, science]   # choose from: ai, literature, music, news, politics, science
   fewrel:
     enabled: true      # sentence-level, 16 Wikidata relations
+  multitacred:
+    enabled: true      # multilingual, 41 TACRED relations (requires LDC data)
+    data_dir: data/multitacred   # path to extracted LDC data
+    language: en       # ar, zh, fi, fr, de, hi, hu, ja, pl, ru, es, tr
 ```
 
 ### Model parameters
@@ -173,7 +178,8 @@ gliner_eval/
 │   │   ├── base.py          # Shared data structures (RelationSample, Entity, GoldRelation)
 │   │   ├── docred.py        # DocRED loader
 │   │   ├── crossre.py       # CrossRE loader
-│   │   └── fewrel.py        # FewRel loader
+│   │   ├── fewrel.py        # FewRel loader
+│   │   └── multitacred.py   # MultiTACRED loader (local JSON, LDC data)
 │   ├── models/
 │   │   ├── base.py          # Base model ABC + shared prompt template
 │   │   ├── gliner_model.py  # GLiNER-relex wrapper
