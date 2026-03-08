@@ -34,10 +34,18 @@ class FewRelConfig(BaseModel):
     split: str = "val_wiki"
 
 
+class MultiTACREDConfig(BaseModel):
+    enabled: bool = True
+    data_dir: str = "data/multitacred"
+    language: str = "en"
+    split: str = "test"
+
+
 class DatasetsConfig(BaseModel):
     docred: DocREDConfig = DocREDConfig()
     crossre: CrossREConfig = CrossREConfig()
     fewrel: FewRelConfig = FewRelConfig()
+    multitacred: MultiTACREDConfig = MultiTACREDConfig()
 
 
 class GLiNERConfig(BaseModel):

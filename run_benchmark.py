@@ -15,6 +15,7 @@ from src.datasets.base import DatasetInfo
 from src.datasets.crossre import load_crossre
 from src.datasets.docred import load_docred
 from src.datasets.fewrel import load_fewrel
+from src.datasets.multitacred import load_multitacred
 from src.evaluation.metrics import MetricsResult, compute_metrics
 from src.evaluation.report import generate_report
 from src.models.base import BaseRelationModel, PredictedRelation
@@ -56,6 +57,16 @@ def load_datasets(cfg) -> dict[str, DatasetInfo]:
         logger.info("Loading FewRel...")
         datasets["fewrel"] = load_fewrel(
             split=cfg.datasets.fewrel.split,
+            sample_size=cfg.general.sample_size,
+            random_seed=cfg.general.random_seed,
+        )
+
+    if cfg.datasets.multitacred.enabled:
+        logger.info("Loading MultiTACRED...")
+        datasets["multitacred"] = load_multitacred(
+            data_dir=cfg.datasets.multitacred.data_dir,
+            language=cfg.datasets.multitacred.language,
+            split=cfg.datasets.multitacred.split,
             sample_size=cfg.general.sample_size,
             random_seed=cfg.general.random_seed,
         )

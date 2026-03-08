@@ -1,20 +1,16 @@
 general:
-  sample_size: 25
+  sample_size: 5
   random_seed: 42
-  output_dir: outputs
+  output_dir: outputs_multitacred_run
   matching_mode: strict
 
 datasets:
   docred:
-    enabled: true
-    split: validation
+    enabled: false
   crossre:
-    enabled: true
-    domains: [ai, news, science]
-    split: test
+    enabled: false
   fewrel:
-    enabled: true
-    split: val_wiki
+    enabled: false
   multitacred:
     enabled: true
     data_dir: data/multitacred
@@ -38,8 +34,4 @@ models:
     temperature: 0.0
     max_tokens: 16384
   qwen3:
-    enabled: true
-    model_name: qwen3:0.6b
-    ollama_base_url: http://localhost:11434/v1
-    temperature: 0.0
-    max_tokens: 2048
+    enabled: false
